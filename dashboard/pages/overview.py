@@ -1,5 +1,6 @@
 """Overview page - Executive summary with KPI cards and trend charts."""
 import streamlit as st
+import pandas as pd
 import plotly.express as px
 from data_loader import load_claims_data
 
