@@ -7,10 +7,35 @@ df = load_claims_data()
 
 st.title("RCM Denial Intelligence Dashboard")
 st.markdown("_Healthcare Insurance Claim Denial Analytics — Jan 2024 to Dec 2025_")
+
+with st.expander("Filters", expanded=False):
+    c1, c2 = st.columns(2)
+    with c1:
+        date_range = st.date_input(
+            "Date Range",
+            value=(df["service_date"].min(), df["service_date"].max()),
+            min_value=df["service_date"].min().date(),
+            max_value=df["service_date"].max().date(),
+        )
+    with c2:
+        payer_types = st.multiselect(
+            "Payer Type",
+            options=sorted(df["payer_type"].unique()),
+            default=sorted(df["payer_type"].unique()),
+        )
+
+if len(date_range) == 2:
+    mask = (df["service_date"] >= pd.Timestamp(date_range[0])) & \
+           (df["service_date"] <= pd.Timestamp(date_range[1]))
+    mask &= df["payer_type"].isin(payer_types)
+    filtered_df = df[mask]
+else:
+    filtered_df = df
+
 st.markdown("---")
 
-total_claims = len(df)
-denied_df = df[df["claim_status"] != "Paid"]
+total_claims = len(filtered_df)
+denied_df = filtered_df[filtered_df["claim_status"] != "Paid"]
 denied_count = len(denied_df)
 denial_rate = denied_count / total_claims * 100
 total_denied = denied_df["denied_amount"].sum()
@@ -34,7 +59,7 @@ col8.metric("Avg Aging Days", f"{avg_aging:.0f}")
 
 st.markdown("---")
 
-monthly = df.groupby(df["service_date"].dt.to_period("M")).agg(
+monthly = filtered_df.groupby(filtered_df["service_date"].dt.to_period("M")).agg(
     total=("claim_id", "count"),
     denied=("claim_status", lambda x: (x != "Paid").sum()),
     denied_amt=("denied_amount", "sum"),
