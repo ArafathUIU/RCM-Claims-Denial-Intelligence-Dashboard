@@ -485,3 +485,98 @@ def build_provider_sheet(wb, df):
     gk = os.path.join(os.path.dirname(__file__), ".gitkeep")
     if os.path.exists(gk):
         os.remove(gk)
+
+
+def build_aging_sheet(wb, df):
+    """Sheet 6: Aging & AR Analysis."""
+    ws = wb.create_sheet("Aging & AR")
+    add_title(ws, "Accounts Receivable Aging", row=1, col=1)
+    add_subtitle(ws, "Denied claims aging distribution and outstanding AR", row=2, col=1)
+
+    denied_df = df[df["claim_status"] != "Paid"].copy()
+    denied_df["aging_bucket"] = pd.cut(
+        denied_df["aging_days"],
+        bins=[0, 30, 60, 90, float("inf")],
+        labels=["0-30 days", "31-60 days", "61-90 days", "90+ days"],
+    )
+
+    aging = denied_df.groupby("aging_bucket", observed=False).agg(
+        count=("claim_id", "count"),
+        denied_amt=("denied_amount", "sum"),
+        recovered_amt=("recovered_amount", "sum"),
+        avg_aging=("aging_days", "mean"),
+    ).reset_index()
+    aging["outstanding"] = aging["denied_amt"] - aging["recovered_amt"]
+    aging["pct"] = aging["denied_amt"] / aging["denied_amt"].sum() * 100
+    aging.columns = ["Bucket", "Claims", "Denied Amt", "Recovered", "Avg Days", "Outstanding", "% Total"]
+    aging_order = ["0-30 days", "31-60 days", "61-90 days", "90+ days"]
+    aging["_sort"] = aging["Bucket"].apply(lambda x: aging_order.index(x) if x in aging_order else 99)
+    aging = aging.sort_values("_sort").drop(columns=["_sort"])
+
+    headers = list(aging.columns)
+    for ci, h in enumerate(headers, 1):
+        ws.cell(row=4, column=ci, value=h)
+    apply_header_style(ws, 4, len(headers))
+
+    for ri, (_, row_data) in enumerate(aging.iterrows()):
+        for ci, val in enumerate(row_data, 1):
+            ws.cell(row=5 + ri, column=ci, value=val)
+        ws.cell(row=5 + ri, column=3).number_format = "$#,##0"
+        ws.cell(row=5 + ri, column=4).number_format = "$#,##0"
+        ws.cell(row=5 + ri, column=5).number_format = "0.0"
+        ws.cell(row=5 + ri, column=6).number_format = "$#,##0"
+    apply_body_style(ws, 5, 8, len(headers))
+    auto_width(ws, min_width=12)
+
+    chart = BarChart()
+    chart.type = "col"
+    chart.title = "Denied Claims by Aging Bucket"
+    chart.y_axis.title = "Number of Claims"
+    chart.style = 10
+    chart.height = 14
+    chart.width = 22
+
+    data_ref = Reference(ws, min_col=2, min_row=4, max_row=8)
+    cats_ref = Reference(ws, min_col=1, min_row=5, max_row=8)
+    chart.add_data(data_ref, titles_from_data=True)
+    chart.set_categories(cats_ref)
+
+    bucket_colors = [GREEN_ACCENT, "70AD47", ORANGE, RED_ACCENT]
+    for idx, color in enumerate(bucket_colors):
+        chart.series[0].data_points.append(DataPoint(idx=idx, graphicalProperties_solidFill=color))
+
+    ws.add_chart(chart, "I4")
+
+    chart2 = BarChart()
+    chart2.type = "col"
+    chart2.title = "Outstanding AR by Aging Bucket"
+    chart2.y_axis.title = "Amount ($)"
+    chart2.style = 10
+    chart2.height = 14
+    chart2.width = 22
+
+    data_ref2 = Reference(ws, min_col=6, min_row=4, max_row=8)
+    chart2.add_data(data_ref2, titles_from_data=True)
+    chart2.set_categories(cats_ref)
+    for idx, color in enumerate(bucket_colors):
+        chart2.series[0].data_points.append(DataPoint(idx=idx, graphicalProperties_solidFill=color))
+
+    ws.add_chart(chart2, "I20")
+
+    aging_by_payer = denied_df.groupby("payer_name").agg(
+        avg_aging=("aging_days", "mean"),
+        outstanding=("denied_amount", "sum"),
+    ).reset_index()
+    aging_by_payer = aging_by_payer.sort_values("avg_aging", ascending=False)
+    aging_by_payer.columns = ["Payer", "Avg Aging Days", "Outstanding AR"]
+
+    pay_start = 12
+    for ci, h in enumerate(list(aging_by_payer.columns), 1):
+        ws.cell(row=pay_start, column=ci, value=h)
+    apply_header_style(ws, pay_start, len(aging_by_payer.columns))
+    for ri, (_, row_data) in enumerate(aging_by_payer.iterrows()):
+        for ci, val in enumerate(row_data, 1):
+            ws.cell(row=pay_start + 1 + ri, column=ci, value=val)
+        ws.cell(row=pay_start + 1 + ri, column=2).number_format = "0.0"
+        ws.cell(row=pay_start + 1 + ri, column=3).number_format = "$#,##0"
+    apply_body_style(ws, pay_start + 1, pay_start + len(aging_by_payer), len(aging_by_payer.columns))
