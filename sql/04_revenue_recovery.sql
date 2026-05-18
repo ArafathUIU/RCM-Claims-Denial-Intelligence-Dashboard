@@ -18,3 +18,15 @@ SELECT
     ROUND(100.0 * SUM(CASE WHEN claim_status = 'Recovered' THEN 1 ELSE 0 END)
           / NULLIF(SUM(appeal_flag), 0), 2)                                                 AS appeal_success_pct
 FROM claims;
+
+-- -----------------------------------------------------------
+-- 4.2 Revenue Recovery: $ Recovered vs $ Written Off
+-- -----------------------------------------------------------
+-- Total financial outcome of denied claims.
+SELECT
+    ROUND(SUM(denied_amount), 2)                                               AS total_denied,
+    ROUND(SUM(recovered_amount), 2)                                            AS total_recovered,
+    ROUND(SUM(denied_amount) - SUM(recovered_amount), 2)                      AS total_written_off,
+    ROUND(100.0 * SUM(recovered_amount) / NULLIF(SUM(denied_amount), 0), 2)  AS recovery_rate_pct
+FROM claims
+WHERE claim_status != 'Paid';
