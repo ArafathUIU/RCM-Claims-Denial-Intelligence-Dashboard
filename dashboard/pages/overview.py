@@ -32,6 +32,10 @@ if len(date_range) == 2:
 else:
     filtered_df = df
 
+if len(filtered_df) == 0:
+    st.warning("No data matches the selected filters.")
+    st.stop()
+
 st.markdown("---")
 
 total_claims = len(filtered_df)
@@ -39,10 +43,10 @@ denied_df = filtered_df[filtered_df["claim_status"] != "Paid"]
 denied_count = len(denied_df)
 denial_rate = denied_count / total_claims * 100
 total_denied = denied_df["denied_amount"].sum()
-total_recovered = df[df["claim_status"] == "Recovered"]["recovered_amount"].sum()
+total_recovered = filtered_df[filtered_df["claim_status"] == "Recovered"]["recovered_amount"].sum()
 recovery_rate = total_recovered / total_denied * 100 if total_denied else 0
 appealed = denied_df[denied_df["appeal_flag"] == 1]
-appeal_win_rate = len(df[df["claim_status"] == "Recovered"]) / len(appealed) * 100 if len(appealed) > 0 else 0
+appeal_win_rate = len(filtered_df[filtered_df["claim_status"] == "Recovered"]) / len(appealed) * 100 if len(appealed) > 0 else 0
 avg_aging = denied_df["aging_days"].mean()
 
 col1, col2, col3, col4 = st.columns(4)
