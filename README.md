@@ -40,9 +40,8 @@ synthetic data ──► CSV ──► pandas ──► Excel workbook (6 sheets
 20,000 records spanning Jan 2024 – Dec 2025 with realistic distributions:
 - 12 insurance payers (UnitedHealth, Aetna, BCBS, Cigna, Humana, Medicare, Medicaid, Tricare, Kaiser, Centene, Molina, Anthem)
 - 50 providers across 12 clinical departments
-- 14 denial reason codes (CO-16, CO-50, CO-97, CO-109, etc.) with weighted frequency
-- Seasonal variation (Q4 denials 30% higher)
-- Department-level denial propensity
+- 14 denial reason codes (CO-16, CO-50, CO-97, CO-109, etc.)
+- Realistic denial rates (~13-15%), appeal rates (~35%), and recovery rates (~17-20%)
 
 ### Claim Lifecycle
 ```
@@ -191,4 +190,5 @@ uv pip install -r requirements.txt
 | 2 | SQL Analysis Queries (6 dimensions) | Complete |
 | 3 | Excel Dashboard (6 sheets) | Complete |
 | 4 | Streamlit Web Dashboard (5 pages) | Complete |
-| 5 | Documentation & Polish | In Progress |
+| 5 | Documentation & Polish | Complete |
+| 6 (bonus) | Streamlit Theme & Config | Complete |
