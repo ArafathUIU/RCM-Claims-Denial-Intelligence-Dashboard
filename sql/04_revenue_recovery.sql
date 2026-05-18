@@ -30,3 +30,38 @@ SELECT
     ROUND(100.0 * SUM(recovered_amount) / NULLIF(SUM(denied_amount), 0), 2)  AS recovery_rate_pct
 FROM claims
 WHERE claim_status != 'Paid';
+
+-- -----------------------------------------------------------
+-- 4.3 Average Days to Recover
+-- -----------------------------------------------------------
+-- How long does it take (from denial date) to recover revenue?
+SELECT
+    ROUND(AVG(julianday(recovery_date) - julianday(denial_date)), 1) AS avg_days_to_recover,
+    MIN(julianday(recovery_date) - julianday(denial_date))           AS min_days,
+    MAX(julianday(recovery_date) - julianday(denial_date))           AS max_days,
+    COUNT(*)                                                          AS recovered_claims
+FROM claims
+WHERE claim_status = 'Recovered'
+  AND recovery_date != ''
+  AND denial_date != '';
+
+-- -----------------------------------------------------------
+-- 4.4 Recovery Days by Claim Amount Bucket
+-- -----------------------------------------------------------
+-- Do larger denied amounts take longer to recover?
+SELECT
+    CASE
+        WHEN denied_amount < 1000 THEN '< $1K'
+        WHEN denied_amount < 5000 THEN '$1K-$5K'
+        WHEN denied_amount < 10000 THEN '$5K-$10K'
+        ELSE '> $10K'
+    END AS amount_bucket,
+    COUNT(*)                                                           AS claim_count,
+    ROUND(AVG(julianday(recovery_date) - julianday(denial_date)), 1)  AS avg_recovery_days,
+    ROUND(SUM(recovered_amount), 2)                                    AS total_recovered
+FROM claims
+WHERE claim_status = 'Recovered'
+  AND recovery_date != ''
+  AND denial_date != ''
+GROUP BY amount_bucket
+ORDER BY avg_recovery_days;
