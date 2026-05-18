@@ -94,3 +94,93 @@ def add_subtitle(ws, text, row=2, col=1):
     """Add a subtitle / description."""
     cell = ws.cell(row=row, column=col, value=text)
     cell.font = SUBTITLE_FONT
+
+
+def add_kpi(ws, row, col, label, value, fmt=None):
+    """Add a KPI card (label + value) at the given position."""
+    v_cell = ws.cell(row=row, column=col, value=value)
+    v_cell.font = KPI_VALUE_FONT
+    v_cell.alignment = Alignment(horizontal="center")
+    if fmt:
+        v_cell.number_format = fmt
+
+    l_cell = ws.cell(row=row + 1, column=col, value=label)
+    l_cell.font = KPI_LABEL_FONT
+    l_cell.alignment = Alignment(horizontal="center")
+
+
+def build_summary_sheet(wb, df):
+    """Sheet 1: Executive Summary with KPI cards and trend sparklines."""
+    ws = wb.active
+    ws.title = "Summary"
+
+    add_title(ws, "RCM Claims Denial Intelligence", row=1, col=1)
+    add_subtitle(ws, f"Data period: Jan 2024 - Dec 2025  |  Generated from {len(df):,} claims", row=2, col=1)
+
+    total_claims = len(df)
+    denied_df = df[df["claim_status"] != "Paid"]
+    denied_count = len(denied_df)
+    denial_rate = denied_count / total_claims * 100
+    total_denied = denied_df["denied_amount"].sum()
+    total_recovered = df[df["claim_status"] == "Recovered"]["recovered_amount"].sum()
+    recovery_rate = total_recovered / total_denied * 100 if total_denied else 0
+    appealed = denied_df[denied_df["appeal_flag"] == 1]
+    appeal_win_rate = len(df[df["claim_status"] == "Recovered"]) / len(appealed) * 100 if len(appealed) else 0
+    avg_aging = denied_df["aging_days"].mean()
+
+    kpi_start_row = 5
+    add_kpi(ws, kpi_start_row, 1, "Total Claims", total_claims, "#,##0")
+    add_kpi(ws, kpi_start_row, 3, "Denial Rate", f"{denial_rate:.1f}%")
+    add_kpi(ws, kpi_start_row, 5, "Total Denied", total_denied, "$#,##0")
+    add_kpi(ws, kpi_start_row, 7, "Recovery Rate", f"{recovery_rate:.1f}%")
+    add_kpi(ws, kpi_start_row + 3, 1, "Claims Denied", denied_count, "#,##0")
+    add_kpi(ws, kpi_start_row + 3, 3, "Appeal Win Rate", f"{appeal_win_rate:.1f}%")
+    add_kpi(ws, kpi_start_row + 3, 5, "Total Recovered", total_recovered, "$#,##0")
+    add_kpi(ws, kpi_start_row + 3, 7, "Avg Aging Days", f"{avg_aging:.0f}")
+
+    monthly = df.groupby(df["service_date"].str[:7]).agg(
+        total=("claim_id", "count"),
+        denied=("claim_status", lambda x: (x != "Paid").sum()),
+        denied_amt=("denied_amount", "sum"),
+        recovered_amt=("recovered_amount", "sum"),
+    ).reset_index()
+    monthly["denial_rate"] = monthly["denied"] / monthly["total"] * 100
+    monthly.columns = ["Month", "Total Claims", "Denied Claims", "Denied Amount", "Recovered Amount", "Denial Rate %"]
+
+    table_start = 11
+    headers = list(monthly.columns)
+    for ci, h in enumerate(headers, 1):
+        ws.cell(row=table_start, column=ci, value=h)
+    apply_header_style(ws, table_start, len(headers))
+
+    for ri, (_, row_data) in enumerate(monthly.iterrows()):
+        for ci, val in enumerate(row_data, 1):
+            ws.cell(row=table_start + 1 + ri, column=ci, value=val)
+        ws.cell(row=table_start + 1 + ri, column=4).number_format = "$#,##0"
+        ws.cell(row=table_start + 1 + ri, column=5).number_format = "$#,##0"
+        ws.cell(row=table_start + 1 + ri, column=6).number_format = "0.0"
+
+    apply_body_style(ws, table_start + 1, table_start + len(monthly), len(headers))
+
+    chart = LineChart()
+    chart.title = "Monthly Denial Rate Trend"
+    chart.y_axis.title = "Denial Rate %"
+    chart.x_axis.title = "Month"
+    chart.style = 10
+    chart.height = 12
+    chart.width = 22
+
+    data_ref = Reference(ws, min_col=6, min_row=table_start, max_row=table_start + len(monthly))
+    cats_ref = Reference(ws, min_col=1, min_row=table_start + 1, max_row=table_start + len(monthly))
+    chart.add_data(data_ref, titles_from_data=True)
+    chart.set_categories(cats_ref)
+    chart.series[0].graphicalProperties.line.solidFill = MED_BLUE
+    chart.series[0].graphicalProperties.line.width = 28000
+
+    ws.add_chart(chart, f"A{table_start + len(monthly) + 3}")
+    auto_width(ws)
+
+    # Remove .gitkeep
+    gk = os.path.join(os.path.dirname(__file__), ".gitkeep")
+    if os.path.exists(gk):
+        os.remove(gk)
