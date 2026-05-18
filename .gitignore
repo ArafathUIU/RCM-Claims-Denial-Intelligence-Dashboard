@@ -1,0 +1,18 @@
+# Generated data files
+data/claims_data.csv
+excel/*.xlsx
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
