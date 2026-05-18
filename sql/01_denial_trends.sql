@@ -61,3 +61,18 @@ SELECT
 FROM claims
 GROUP BY quarter
 ORDER BY quarter;
+
+-- -----------------------------------------------------------
+-- 1.5 Year-over-Year Comparison by Month
+-- -----------------------------------------------------------
+-- Compare same month across different years to spot seasonal patterns.
+SELECT
+    CAST(strftime('%m', service_date) AS INTEGER) AS month_num,
+    strftime('%Y', service_date)                   AS year,
+    COUNT(*)                                       AS total_claims,
+    SUM(CASE WHEN claim_status != 'Paid' THEN 1 ELSE 0 END) AS denied_claims,
+    ROUND(100.0 * SUM(CASE WHEN claim_status != 'Paid' THEN 1 ELSE 0 END) / COUNT(*), 2) AS denial_rate_pct,
+    ROUND(SUM(denied_amount), 2)                   AS total_denied
+FROM claims
+GROUP BY month_num, year
+ORDER BY month_num, year;
