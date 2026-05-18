@@ -52,9 +52,9 @@ CHART_COLORS = ["2E75B6", "ED7D31", "A5A5A5", "FFC000", "4472C4",
                 "70AD47", "C00000", "5B9BD5", "264478", "636363"]
 
 
-def apply_header_style(ws, row, cols):
+def apply_header_style(ws, row, cols, start_col=1):
     """Apply header styling to a row of cells."""
-    for col in range(1, cols + 1):
+    for col in range(start_col, start_col + cols):
         cell = ws.cell(row=row, column=col)
         cell.font = HEADER_FONT
         cell.fill = HEADER_FILL
@@ -62,10 +62,10 @@ def apply_header_style(ws, row, cols):
         cell.border = THIN_BORDER
 
 
-def apply_body_style(ws, start_row, end_row, cols):
+def apply_body_style(ws, start_row, end_row, cols, start_col=1):
     """Apply alternating row colors and borders to data rows."""
     for r in range(start_row, end_row + 1):
-        for c in range(1, cols + 1):
+        for c in range(start_col, start_col + cols):
             cell = ws.cell(row=r, column=c)
             cell.border = THIN_BORDER
             cell.alignment = Alignment(horizontal="center", vertical="center")
@@ -383,6 +383,103 @@ def build_recovery_sheet(wb, df):
         ws.cell(row=stat_start + 1 + ri, column=2, value=val)
         ws.cell(row=stat_start + 1 + ri, column=3, value=rate)
     apply_body_style(ws, stat_start + 1, stat_start + 5, 3)
+
+
+def build_provider_sheet(wb, df):
+    """Sheet 5: Provider & Department Drill-down."""
+    ws = wb.create_sheet("Provider Drill-down")
+    add_title(ws, "Provider & Department Performance", row=1, col=1)
+    add_subtitle(ws, "Denial rates by provider and clinical department", row=2, col=1)
+
+    provider_stats = df.groupby(["provider_name", "department"]).agg(
+        total=("claim_id", "count"),
+        denied=("claim_status", lambda x: (x != "Paid").sum()),
+        denied_amt=("denied_amount", "sum"),
+        recovered_amt=("recovered_amount", "sum"),
+        avg_aging=("aging_days", "mean"),
+    ).reset_index()
+    provider_stats["denial_rate"] = provider_stats["denied"] / provider_stats["total"] * 100
+    provider_stats["recovery_rate"] = (
+        provider_stats["recovered_amt"] / provider_stats["denied_amt"].replace(0, None) * 100
+    ).fillna(0)
+    provider_stats = provider_stats.sort_values("denial_rate", ascending=False)
+    provider_stats.columns = [
+        "Provider", "Department", "Total Claims", "Denied Claims",
+        "Denied Amount", "Recovered Amount", "Avg Aging Days",
+        "Denial Rate %", "Recovery Rate %"
+    ]
+
+    headers = list(provider_stats.columns)
+    for ci, h in enumerate(headers, 1):
+        ws.cell(row=4, column=ci, value=h)
+    apply_header_style(ws, 4, len(headers))
+
+    from openpyxl.formatting.rule import CellIsRule
+
+    for ri, (_, row_data) in enumerate(provider_stats.iterrows()):
+        for ci, val in enumerate(row_data, 1):
+            ws.cell(row=5 + ri, column=ci, value=val)
+        ws.cell(row=5 + ri, column=5).number_format = "$#,##0"
+        ws.cell(row=5 + ri, column=6).number_format = "$#,##0"
+        ws.cell(row=5 + ri, column=7).number_format = "0.0"
+        ws.cell(row=5 + ri, column=8).number_format = "0.0%"
+        ws.cell(row=5 + ri, column=9).number_format = "0.0%"
+
+    last_row = 4 + len(provider_stats)
+    apply_body_style(ws, 5, last_row, len(headers))
+
+    red_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
+    green_fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
+    red_font = Font(color="9C0006")
+    green_font = Font(color="006100")
+
+    ws.conditional_formatting.add(
+        f"H5:H{last_row}",
+        CellIsRule(operator="greaterThan", formula=["15"], fill=red_fill, font=red_font)
+    )
+    ws.conditional_formatting.add(
+        f"H5:H{last_row}",
+        CellIsRule(operator="lessThanOrEqual", formula=["15"], fill=green_fill, font=green_font)
+    )
+    auto_width(ws, min_width=12)
+
+    dept_stats = df.groupby("department").agg(
+        total=("claim_id", "count"),
+        denied=("claim_status", lambda x: (x != "Paid").sum()),
+        denied_amt=("denied_amount", "sum"),
+    ).reset_index()
+    dept_stats["denial_rate"] = dept_stats["denied"] / dept_stats["total"] * 100
+    dept_stats = dept_stats.sort_values("denial_rate", ascending=False)
+    dept_stats.columns = ["Department", "Total Claims", "Denied", "Denied Amt", "Denial Rate %"]
+
+    dept_start_col = len(headers) + 2
+    dept_headers = list(dept_stats.columns)
+    for ci, h in enumerate(dept_headers):
+        ws.cell(row=4, column=dept_start_col + ci, value=h)
+    apply_header_style(ws, 4, len(dept_headers), start_col=dept_start_col)
+
+    for ri, (_, row_data) in enumerate(dept_stats.iterrows()):
+        for ci, val in enumerate(row_data):
+            ws.cell(row=5 + ri, column=dept_start_col + ci, value=val)
+    apply_body_style(ws, 5, 4 + len(dept_stats), len(dept_headers), start_col=dept_start_col)
+
+    chart = BarChart()
+    chart.type = "bar"
+    chart.title = "Denial Rate % by Department"
+    chart.style = 10
+    chart.height = 12
+    chart.width = 20
+
+    data_ref = Reference(ws, min_col=dept_start_col + 4, min_row=4,
+                         max_row=4 + len(dept_stats))
+    cats_ref = Reference(ws, min_col=dept_start_col, min_row=5,
+                         max_row=4 + len(dept_stats))
+    chart.add_data(data_ref, titles_from_data=True)
+    chart.set_categories(cats_ref)
+    chart.series[0].graphicalProperties.solidFill = TEAL
+
+    chart_row = 4 + len(dept_stats) + 2
+    ws.add_chart(chart, f"A{chart_row}")
 
     # Remove .gitkeep
     gk = os.path.join(os.path.dirname(__file__), ".gitkeep")
