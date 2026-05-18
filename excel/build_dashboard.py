@@ -354,25 +354,25 @@ def build_recovery_sheet(wb, df):
 
     colors = [MED_BLUE, LIGHT_BLUE, RED_ACCENT, GREEN_ACCENT, ORANGE]
     for idx, color in enumerate(colors):
-        chart.series[0].data_points.append(DataPoint(idx=idx, graphicalProperties_solidFill=color))
+        pt = DataPoint(idx=idx)
+        pt.graphicalProperties.solidFill = color
+        chart.series[0].data_points.append(pt)
 
     ws.add_chart(chart, "E4")
 
-    appeal_stats = denied.agg(
-        total_denied=("claim_id", "count"),
-        appeals=("appeal_flag", "sum"),
-        wins=("claim_status", lambda x: (x == "Recovered").sum()),
-        losses=("claim_status", lambda x: (x == "Written Off").sum()),
-        denied_amt=("denied_amount", "sum"),
-        recovered_amt=("recovered_amount", "sum"),
-    )
+    num_denied = len(denied)
+    num_appeals = denied["appeal_flag"].sum()
+    num_wins = len(df[df["claim_status"] == "Recovered"])
+    num_losses = len(df[df["claim_status"] == "Written Off"])
+    denied_amt = denied["denied_amount"].sum()
+    recovered_amt = df[df["claim_status"] == "Recovered"]["recovered_amount"].sum()
 
     stats_data = [
-        ("Total Denied Claims", appeal_stats["total_denied"], ""),
-        ("Appeals Filed", appeal_stats["appeals"], f"{appeal_stats['appeals']/appeal_stats['total_denied']*100:.1f}%"),
-        ("Appeals Won", appeal_stats["wins"], f"{appeal_stats['wins']/appeal_stats['appeals']*100:.1f}%" if appeal_stats["appeals"] else "0%"),
-        ("Appeals Lost", appeal_stats["losses"], ""),
-        ("Recovery Rate ($)", "", f"{appeal_stats['recovered_amt']/appeal_stats['denied_amt']*100:.1f}%" if appeal_stats["denied_amt"] else "0%"),
+        ("Total Denied Claims", num_denied, ""),
+        ("Appeals Filed", num_appeals, f"{num_appeals/num_denied*100:.1f}%" if num_denied else "0%"),
+        ("Appeals Won", num_wins, f"{num_wins/num_appeals*100:.1f}%" if num_appeals else "0%"),
+        ("Appeals Lost", num_losses, ""),
+        ("Recovery Rate ($)", "", f"{recovered_amt/denied_amt*100:.1f}%" if denied_amt else "0%"),
     ]
     stat_start = 12
     for ci, h in enumerate(["Metric", "Value", "Rate"], 1):
@@ -538,7 +538,9 @@ def build_aging_sheet(wb, df):
 
     bucket_colors = [GREEN_ACCENT, "70AD47", ORANGE, RED_ACCENT]
     for idx, color in enumerate(bucket_colors):
-        chart.series[0].data_points.append(DataPoint(idx=idx, graphicalProperties_solidFill=color))
+        pt = DataPoint(idx=idx)
+        pt.graphicalProperties.solidFill = color
+        chart.series[0].data_points.append(pt)
 
     ws.add_chart(chart, "I4")
 
@@ -554,7 +556,9 @@ def build_aging_sheet(wb, df):
     chart2.add_data(data_ref2, titles_from_data=True)
     chart2.set_categories(cats_ref)
     for idx, color in enumerate(bucket_colors):
-        chart2.series[0].data_points.append(DataPoint(idx=idx, graphicalProperties_solidFill=color))
+        pt = DataPoint(idx=idx)
+        pt.graphicalProperties.solidFill = color
+        chart2.series[0].data_points.append(pt)
 
     ws.add_chart(chart2, "I20")
 
