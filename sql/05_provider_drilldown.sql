@@ -71,3 +71,21 @@ GROUP BY pr.provider_name
 HAVING total_claims >= 50
 ORDER BY denial_rate_pct DESC
 LIMIT 10;
+
+-- -----------------------------------------------------------
+-- 5.5 Provider-Payer Denial Matrix
+-- -----------------------------------------------------------
+-- Cross-reference: which provider-payer combos have highest denial rates?
+SELECT
+    pr.provider_name,
+    pr.department,
+    p.payer_name,
+    COUNT(*)                                                   AS total_claims,
+    SUM(CASE WHEN c.claim_status != 'Paid' THEN 1 ELSE 0 END)  AS denied_claims,
+    ROUND(100.0 * SUM(CASE WHEN c.claim_status != 'Paid' THEN 1 ELSE 0 END) / COUNT(*), 2) AS denial_rate_pct,
+    ROUND(SUM(c.denied_amount), 2)                             AS total_denied
+FROM claims c
+JOIN providers pr ON c.provider_id = pr.provider_id
+JOIN payers p ON c.payer_id = p.payer_id
+GROUP BY pr.provider_name, p.payer_name
+ORDER BY denial_rate_pct DESC;
