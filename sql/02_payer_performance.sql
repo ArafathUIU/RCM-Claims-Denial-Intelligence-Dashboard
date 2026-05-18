@@ -34,3 +34,21 @@ FROM claims c
 JOIN payers p ON c.payer_id = p.payer_id
 GROUP BY p.payer_name
 ORDER BY denial_rate_pct DESC;
+
+-- -----------------------------------------------------------
+-- 2.3 Recovery Rate by Payer
+-- -----------------------------------------------------------
+-- How much of denied revenue is recovered through appeals, per payer.
+SELECT
+    p.payer_name,
+    COUNT(*)                                                            AS total_claims,
+    SUM(CASE WHEN c.claim_status != 'Paid' THEN 1 ELSE 0 END)           AS denied_claims,
+    SUM(CASE WHEN c.claim_status = 'Recovered' THEN 1 ELSE 0 END)       AS recovered_claims,
+    SUM(CASE WHEN c.claim_status = 'Written Off' THEN 1 ELSE 0 END)     AS written_off_claims,
+    ROUND(SUM(c.denied_amount), 2)                                      AS total_denied,
+    ROUND(SUM(c.recovered_amount), 2)                                   AS total_recovered,
+    ROUND(100.0 * SUM(c.recovered_amount) / NULLIF(SUM(c.denied_amount), 0), 2) AS recovery_rate_pct
+FROM claims c
+JOIN payers p ON c.payer_id = p.payer_id
+GROUP BY p.payer_name
+ORDER BY recovery_rate_pct DESC;
