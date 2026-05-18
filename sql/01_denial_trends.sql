@@ -45,3 +45,19 @@ SELECT
 FROM claims
 GROUP BY strftime('%Y-%m', service_date)
 ORDER BY year_month;
+
+-- -----------------------------------------------------------
+-- 1.4 Quarterly Denial Summary
+-- -----------------------------------------------------------
+-- Aggregated by quarter for higher-level trend analysis.
+SELECT
+    strftime('%Y', service_date) || '-Q' || ((CAST(strftime('%m', service_date) AS INTEGER) - 1) / 3 + 1) AS quarter,
+    COUNT(*)                                                                   AS total_claims,
+    SUM(CASE WHEN claim_status != 'Paid' THEN 1 ELSE 0 END)                    AS denied_claims,
+    ROUND(100.0 * SUM(CASE WHEN claim_status != 'Paid' THEN 1 ELSE 0 END) / COUNT(*), 2) AS denial_rate_pct,
+    ROUND(SUM(denied_amount), 2)                                               AS total_denied,
+    ROUND(SUM(recovered_amount), 2)                                            AS total_recovered,
+    ROUND(100.0 * SUM(recovered_amount) / NULLIF(SUM(denied_amount), 0), 2)   AS recovery_rate_pct
+FROM claims
+GROUP BY quarter
+ORDER BY quarter;
