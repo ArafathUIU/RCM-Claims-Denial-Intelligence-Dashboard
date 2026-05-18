@@ -4,8 +4,7 @@ Multi-page interactive web dashboard for analyzing
 healthcare claim denial trends and revenue recovery.
 """
 import streamlit as st
-import pandas as pd
-import os
+from data_loader import load_claims_data
 
 st.set_page_config(
     page_title="RCM Denial Intelligence",
@@ -14,23 +13,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-
-@st.cache_data
-def load_data():
-    """Load claims data from CSV with caching."""
-    data_path = os.path.join(
-        os.path.dirname(__file__), "..", "data", "claims_data.csv"
-    )
-    df = pd.read_csv(data_path)
-    df["service_date"] = pd.to_datetime(df["service_date"])
-    df["billing_date"] = pd.to_datetime(df["billing_date"])
-    df["denial_date"] = pd.to_datetime(df["denial_date"], errors="coerce")
-    df["recovery_date"] = pd.to_datetime(df["recovery_date"], errors="coerce")
-    df["payment_date"] = pd.to_datetime(df["payment_date"], errors="coerce")
-    return df
-
-
-df = load_data()
+df = load_claims_data()
 
 st.sidebar.title("RCM Denial Intelligence")
 st.sidebar.markdown("---")
