@@ -481,11 +481,6 @@ def build_provider_sheet(wb, df):
     chart_row = 4 + len(dept_stats) + 2
     ws.add_chart(chart, f"A{chart_row}")
 
-    # Remove .gitkeep
-    gk = os.path.join(os.path.dirname(__file__), ".gitkeep")
-    if os.path.exists(gk):
-        os.remove(gk)
-
 
 def build_aging_sheet(wb, df):
     """Sheet 6: Aging & AR Analysis."""
@@ -580,3 +575,31 @@ def build_aging_sheet(wb, df):
         ws.cell(row=pay_start + 1 + ri, column=2).number_format = "0.0"
         ws.cell(row=pay_start + 1 + ri, column=3).number_format = "$#,##0"
     apply_body_style(ws, pay_start + 1, pay_start + len(aging_by_payer), len(aging_by_payer.columns))
+
+
+def main():
+    """Build the full Excel dashboard workbook."""
+    if not os.path.exists(DATA_PATH):
+        print(f"Data file not found: {DATA_PATH}")
+        print("Run 'data/generate_data.py' first to generate claims data.")
+        return
+
+    print(f"Loading data from {DATA_PATH}...")
+    df = pd.read_csv(DATA_PATH)
+
+    print(f"Building workbook with {len(df):,} claims...")
+    wb = Workbook()
+
+    build_summary_sheet(wb, df)
+    build_payer_sheet(wb, df)
+    build_denial_reasons_sheet(wb, df)
+    build_recovery_sheet(wb, df)
+    build_provider_sheet(wb, df)
+    build_aging_sheet(wb, df)
+
+    wb.save(OUTPUT_PATH)
+    print(f"Dashboard saved to: {OUTPUT_PATH}")
+
+
+if __name__ == "__main__":
+    main()
