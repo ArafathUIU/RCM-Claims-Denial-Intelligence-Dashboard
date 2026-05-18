@@ -305,6 +305,85 @@ def build_denial_reasons_sheet(wb, df):
 
     ws.add_chart(chart, "G4")
 
+
+def build_recovery_sheet(wb, df):
+    """Sheet 4: Revenue Recovery Analysis with waterfall chart."""
+    ws = wb.create_sheet("Revenue Recovery")
+    add_title(ws, "Revenue Recovery Analysis", row=1, col=1)
+    add_subtitle(ws, "Appeals, recovered amounts, and recovery efficiency", row=2, col=1)
+
+    denied = df[df["claim_status"] != "Paid"]
+    total_billed = df["billed_amount"].sum()
+    total_allowed = df["allowed_amount"].sum()
+    total_denied_amt = denied["denied_amount"].sum()
+    total_recovered_amt = df[df["claim_status"] == "Recovered"]["recovered_amount"].sum()
+    total_written_off = total_denied_amt - total_recovered_amt
+
+    stage_data = [
+        ("Billed Charges", total_billed, ""),
+        ("Allowed Amount", total_allowed, ""),
+        ("Denied Amount", total_denied_amt, ""),
+        ("Recovered", total_recovered_amt, ""),
+        ("Written Off", total_written_off, ""),
+    ]
+    headers = ["Stage", "Amount", "Notes"]
+    for ci, h in enumerate(headers, 1):
+        ws.cell(row=4, column=ci, value=h)
+    apply_header_style(ws, 4, len(headers))
+
+    for ri, (stage, amt, note) in enumerate(stage_data):
+        ws.cell(row=5 + ri, column=1, value=stage)
+        ws.cell(row=5 + ri, column=2, value=amt)
+        ws.cell(row=5 + ri, column=2).number_format = "$#,##0"
+        ws.cell(row=5 + ri, column=3, value=note)
+    apply_body_style(ws, 5, 9, len(headers))
+    auto_width(ws)
+
+    chart = BarChart()
+    chart.type = "col"
+    chart.title = "Revenue Flow: Billed → Denied → Recovered → Written Off"
+    chart.y_axis.title = "Amount ($)"
+    chart.style = 10
+    chart.height = 14
+    chart.width = 22
+
+    data_ref = Reference(ws, min_col=2, min_row=4, max_row=9)
+    cats_ref = Reference(ws, min_col=1, min_row=5, max_row=9)
+    chart.add_data(data_ref, titles_from_data=True)
+    chart.set_categories(cats_ref)
+
+    colors = [MED_BLUE, LIGHT_BLUE, RED_ACCENT, GREEN_ACCENT, ORANGE]
+    for idx, color in enumerate(colors):
+        chart.series[0].data_points.append(DataPoint(idx=idx, graphicalProperties_solidFill=color))
+
+    ws.add_chart(chart, "E4")
+
+    appeal_stats = denied.agg(
+        total_denied=("claim_id", "count"),
+        appeals=("appeal_flag", "sum"),
+        wins=("claim_status", lambda x: (x == "Recovered").sum()),
+        losses=("claim_status", lambda x: (x == "Written Off").sum()),
+        denied_amt=("denied_amount", "sum"),
+        recovered_amt=("recovered_amount", "sum"),
+    )
+
+    stats_data = [
+        ("Total Denied Claims", appeal_stats["total_denied"], ""),
+        ("Appeals Filed", appeal_stats["appeals"], f"{appeal_stats['appeals']/appeal_stats['total_denied']*100:.1f}%"),
+        ("Appeals Won", appeal_stats["wins"], f"{appeal_stats['wins']/appeal_stats['appeals']*100:.1f}%" if appeal_stats["appeals"] else "0%"),
+        ("Appeals Lost", appeal_stats["losses"], ""),
+        ("Recovery Rate ($)", "", f"{appeal_stats['recovered_amt']/appeal_stats['denied_amt']*100:.1f}%" if appeal_stats["denied_amt"] else "0%"),
+    ]
+    stat_start = 12
+    for ci, h in enumerate(["Metric", "Value", "Rate"], 1):
+        ws.cell(row=stat_start, column=ci, value=h)
+    apply_header_style(ws, stat_start, 3)
+    for ri, (label, val, rate) in enumerate(stats_data):
+        ws.cell(row=stat_start + 1 + ri, column=1, value=label)
+        ws.cell(row=stat_start + 1 + ri, column=2, value=val)
+        ws.cell(row=stat_start + 1 + ri, column=3, value=rate)
+    apply_body_style(ws, stat_start + 1, stat_start + 5, 3)
+
     # Remove .gitkeep
     gk = os.path.join(os.path.dirname(__file__), ".gitkeep")
     if os.path.exists(gk):
