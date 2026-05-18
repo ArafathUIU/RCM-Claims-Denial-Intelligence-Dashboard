@@ -44,6 +44,31 @@ APPEAL_SUCCESS_RATE = 0.55
 # Amount ranges
 BILLED_AMOUNT_RANGE = (100, 25_000)
 ALLOWED_PCT_RANGE = (0.55, 0.95)
+PAYMENT_DAYS_RANGE = (7, 45)
+
+# Seasonal fluctuation multiplier (Q4 = more denials)
+SEASONAL_MULTIPLIER = {
+    1: 0.90,   # Q1
+    2: 0.85,   # Q2
+    3: 0.95,   # Q3
+    4: 1.30,   # Q4 - higher denials
+}
+
+# Department-level denial propensity multiplier
+DEPARTMENT_DENIAL_FACTOR = {
+    "Emergency Medicine": 1.3,
+    "Cardiology": 1.0,
+    "Orthopedics": 1.1,
+    "Oncology": 0.8,
+    "Neurology": 1.0,
+    "General Surgery": 1.2,
+    "Radiology": 0.7,
+    "Laboratory": 0.5,
+    "Physical Therapy": 0.9,
+    "Internal Medicine": 1.0,
+    "Pediatrics": 0.6,
+    "OB/GYN": 0.8,
+}
 
 # ============================================================
 # REFERENCE DATA - PAYERS
@@ -95,56 +120,56 @@ DEPARTMENTS = [
 ]
 
 PROVIDERS = [
-    ("Dr. James Wilson", "Emergency Medicine"),
-    ("Dr. Maria Rodriguez", "Emergency Medicine"),
-    ("Dr. Sarah Chen", "Cardiology"),
-    ("Dr. Michael Patel", "Cardiology"),
-    ("Dr. Robert Kim", "Orthopedics"),
-    ("Dr. Lisa Thompson", "Orthopedics"),
-    ("Dr. David Osei", "Oncology"),
-    ("Dr. Angela Martinez", "Oncology"),
-    ("Dr. John Nakamura", "Neurology"),
-    ("Dr. Karen Hughes", "Neurology"),
-    ("Dr. Thomas Becker", "General Surgery"),
-    ("Dr. Patricia Li", "General Surgery"),
-    ("Dr. Richard Barnes", "Radiology"),
-    ("Dr. Jennifer Wu", "Radiology"),
-    ("Dr. Steven Goldstein", "Radiology"),
-    ("Dr. Elizabeth Cole", "Laboratory"),
-    ("Dr. Daniel Park", "Laboratory"),
-    ("Dr. Michelle Singh", "Physical Therapy"),
-    ("Dr. Andrew Foster", "Physical Therapy"),
-    ("Dr. Christopher Nkosi", "Internal Medicine"),
-    ("Dr. Laura Delgado", "Internal Medicine"),
-    ("Dr. William Tran", "Internal Medicine"),
-    ("Dr. Emily Stewart", "Pediatrics"),
-    ("Dr. Benjamin Grant", "Pediatrics"),
-    ("Dr. Rachel O'Brien", "OB/GYN"),
-    ("Dr. Kevin Sharma", "OB/GYN"),
-    ("Dr. Nicole Johnson", "Emergency Medicine"),
-    ("Dr. Mark Williams", "Cardiology"),
-    ("Dr. Susan Davis", "Orthopedics"),
-    ("Dr. Brian Nelson", "Oncology"),
-    ("Dr. Amanda Clark", "Neurology"),
-    ("Dr. Jason Nguyen", "General Surgery"),
-    ("Dr. Heather Garcia", "Internal Medicine"),
-    ("Dr. Frank Okonkwo", "Radiology"),
-    ("Dr. Diana Flores", "Laboratory"),
-    ("Dr. Alan Petrovic", "Physical Therapy"),
-    ("Dr. Catherine Moss", "Pediatrics"),
-    ("Dr. Edward Reeves", "OB/GYN"),
-    ("Dr. Sandra Mitchell", "Emergency Medicine"),
-    ("Dr. Joseph Achebe", "Cardiology"),
-    ("Dr. Linda Yang", "Orthopedics"),
-    ("Dr. George Carlson", "Oncology"),
-    ("Dr. Barbara Holt", "Neurology"),
-    ("Dr. Kenneth Brady", "General Surgery"),
-    ("Dr. Melissa Ford", "Internal Medicine"),
-    ("Dr. Ronald Hale", "Radiology"),
-    ("Dr. Stephanie Cruz", "Laboratory"),
-    ("Dr. Timothy Nash", "Physical Therapy"),
-    ("Dr. Deborah Sutton", "Pediatrics"),
-    ("Dr. Matthew Foley", "OB/GYN"),
+    ("Dr. James Wilson", "Emergency Medicine", "1528374910"),
+    ("Dr. Maria Rodriguez", "Emergency Medicine", "1628395721"),
+    ("Dr. Sarah Chen", "Cardiology", "1728311112"),
+    ("Dr. Michael Patel", "Cardiology", "1828322223"),
+    ("Dr. Robert Kim", "Orthopedics", "1928333334"),
+    ("Dr. Lisa Thompson", "Orthopedics", "1028344445"),
+    ("Dr. David Osei", "Oncology", "1128355556"),
+    ("Dr. Angela Martinez", "Oncology", "1228366667"),
+    ("Dr. John Nakamura", "Neurology", "1328377778"),
+    ("Dr. Karen Hughes", "Neurology", "1428388889"),
+    ("Dr. Thomas Becker", "General Surgery", "1528399990"),
+    ("Dr. Patricia Li", "General Surgery", "1628300001"),
+    ("Dr. Richard Barnes", "Radiology", "1728311113"),
+    ("Dr. Jennifer Wu", "Radiology", "1828322224"),
+    ("Dr. Steven Goldstein", "Radiology", "1928333335"),
+    ("Dr. Elizabeth Cole", "Laboratory", "1028344446"),
+    ("Dr. Daniel Park", "Laboratory", "1128355557"),
+    ("Dr. Michelle Singh", "Physical Therapy", "1228366668"),
+    ("Dr. Andrew Foster", "Physical Therapy", "1328377779"),
+    ("Dr. Christopher Nkosi", "Internal Medicine", "1428388890"),
+    ("Dr. Laura Delgado", "Internal Medicine", "1528399991"),
+    ("Dr. William Tran", "Internal Medicine", "1628300002"),
+    ("Dr. Emily Stewart", "Pediatrics", "1728311114"),
+    ("Dr. Benjamin Grant", "Pediatrics", "1828322225"),
+    ("Dr. Rachel O'Brien", "OB/GYN", "1928333336"),
+    ("Dr. Kevin Sharma", "OB/GYN", "1028344447"),
+    ("Dr. Nicole Johnson", "Emergency Medicine", "1128355558"),
+    ("Dr. Mark Williams", "Cardiology", "1228366669"),
+    ("Dr. Susan Davis", "Orthopedics", "1328377780"),
+    ("Dr. Brian Nelson", "Oncology", "1428388891"),
+    ("Dr. Amanda Clark", "Neurology", "1528399992"),
+    ("Dr. Jason Nguyen", "General Surgery", "1628300003"),
+    ("Dr. Heather Garcia", "Internal Medicine", "1728311115"),
+    ("Dr. Frank Okonkwo", "Radiology", "1828322226"),
+    ("Dr. Diana Flores", "Laboratory", "1928333337"),
+    ("Dr. Alan Petrovic", "Physical Therapy", "1028344448"),
+    ("Dr. Catherine Moss", "Pediatrics", "1128355559"),
+    ("Dr. Edward Reeves", "OB/GYN", "1228366670"),
+    ("Dr. Sandra Mitchell", "Emergency Medicine", "1328377781"),
+    ("Dr. Joseph Achebe", "Cardiology", "1428388892"),
+    ("Dr. Linda Yang", "Orthopedics", "1528399993"),
+    ("Dr. George Carlson", "Oncology", "1628300004"),
+    ("Dr. Barbara Holt", "Neurology", "1728311116"),
+    ("Dr. Kenneth Brady", "General Surgery", "1828322227"),
+    ("Dr. Melissa Ford", "Internal Medicine", "1928333338"),
+    ("Dr. Ronald Hale", "Radiology", "1028344449"),
+    ("Dr. Stephanie Cruz", "Laboratory", "1128355560"),
+    ("Dr. Timothy Nash", "Physical Therapy", "1228366671"),
+    ("Dr. Deborah Sutton", "Pediatrics", "1328377782"),
+    ("Dr. Matthew Foley", "OB/GYN", "1428388893"),
 ]
 
 # ============================================================
@@ -161,6 +186,11 @@ def random_amount(low: float, high: float) -> float:
     return round(random.uniform(low, high), 2)
 
 
+def get_quarter(d: date) -> int:
+    """Return the quarter (1-4) for a given date."""
+    return (d.month - 1) // 3 + 1
+
+
 def generate_claims(num_claims: int) -> list[dict]:
     """Generate a list of synthetic RCM claim records."""
     claims = []
@@ -168,28 +198,26 @@ def generate_claims(num_claims: int) -> list[dict]:
         claim_id = f"CLM-{i:06d}"
         patient_id = f"PT-{fake.unique.random_int(min=10000, max=99999)}"
 
-        # Pick payer with weighted distribution
         payer_idx = random.choices(range(len(PAYERS)), weights=PAYER_WEIGHTS, k=1)[0]
         payer_name, payer_type, _ = PAYERS[payer_idx]
 
-        # Pick provider (random uniform)
-        provider_name, department = random.choice(PROVIDERS)
+        provider_name, department, npi = random.choice(PROVIDERS)
 
-        # Dates
         service_date = random_date(START_DATE, END_DATE)
         billing_days = random.randint(*SERVICE_TO_BILLING_DAYS)
         billing_date = service_date + timedelta(days=billing_days)
 
-        # Amounts
         billed = random_amount(*BILLED_AMOUNT_RANGE)
         allowed_pct = random.uniform(*ALLOWED_PCT_RANGE)
         allowed = round(billed * allowed_pct, 2)
 
-        # Determine if denied based on payer type denial rate
-        denial_rate = DENIAL_RATES[payer_type]
-        is_denied = random.random() < denial_rate
+        base_denial_rate = DENIAL_RATES[payer_type]
+        seasonal_factor = SEASONAL_MULTIPLIER[get_quarter(service_date)]
+        dept_factor = DEPARTMENT_DENIAL_FACTOR.get(department, 1.0)
+        adjusted_rate = min(base_denial_rate * seasonal_factor * dept_factor, 0.95)
+        is_denied = random.random() < adjusted_rate
 
-        # Claim lifecycle
+        payment_date = None
         denial_date = None
         denied_amount = 0.0
         recovered_amount = 0.0
@@ -197,12 +225,12 @@ def generate_claims(num_claims: int) -> list[dict]:
         recovery_date = None
         reason_code = None
         claim_status = "Paid"
+        aging_days = 0
 
         if is_denied:
             denial_days = random.randint(*BILLING_TO_DENIAL_DAYS)
             denial_date = billing_date + timedelta(days=denial_days)
 
-            # Pick denial reason
             reason_idx = random.choices(
                 range(len(DENIAL_REASONS)), weights=DENIAL_WEIGHTS, k=1
             )[0]
@@ -210,12 +238,10 @@ def generate_claims(num_claims: int) -> list[dict]:
 
             denied_amount = round(random.uniform(0.3, 1.0) * billed, 2)
 
-            # Appeal or not
             if random.random() < APPEAL_RATE:
                 appeal_flag = 1
                 claim_status = "Appealed"
 
-                # Successful appeal = recovered
                 if random.random() < APPEAL_SUCCESS_RATE:
                     claim_status = "Recovered"
                     appeal_window = random.randint(*APPEAL_WINDOW_DAYS)
@@ -226,21 +252,29 @@ def generate_claims(num_claims: int) -> list[dict]:
                     recovered_amount = round(
                         random.uniform(0.50, 0.95) * denied_amount, 2
                     )
+                    aging_days = (recovery_date - billing_date).days
                 else:
                     claim_status = "Written Off"
+                    aging_days = (date.today() - billing_date).days
             else:
                 claim_status = "Denied"
+                aging_days = (denial_date - billing_date).days
+        else:
+            payment_date = billing_date + timedelta(days=random.randint(*PAYMENT_DAYS_RANGE))
+            aging_days = (payment_date - billing_date).days
 
         claims.append({
             "claim_id": claim_id,
             "patient_id": patient_id,
             "provider_name": provider_name,
             "department": department,
+            "npi": npi,
             "payer_name": payer_name,
             "payer_type": payer_type,
             "reason_code": reason_code or "",
             "service_date": service_date.isoformat(),
             "billing_date": billing_date.isoformat(),
+            "payment_date": payment_date.isoformat() if payment_date else "",
             "denial_date": denial_date.isoformat() if denial_date else "",
             "recovery_date": recovery_date.isoformat() if recovery_date else "",
             "billed_amount": billed,
@@ -249,6 +283,7 @@ def generate_claims(num_claims: int) -> list[dict]:
             "recovered_amount": recovered_amount,
             "claim_status": claim_status,
             "appeal_flag": appeal_flag,
+            "aging_days": aging_days,
         })
 
     return claims
@@ -257,11 +292,11 @@ def generate_claims(num_claims: int) -> list[dict]:
 def write_csv(claims: list[dict], output_path: str) -> None:
     """Write claims data to CSV file."""
     fieldnames = [
-        "claim_id", "patient_id", "provider_name", "department",
+        "claim_id", "patient_id", "provider_name", "department", "npi",
         "payer_name", "payer_type", "reason_code",
-        "service_date", "billing_date", "denial_date", "recovery_date",
+        "service_date", "billing_date", "payment_date", "denial_date", "recovery_date",
         "billed_amount", "allowed_amount", "denied_amount", "recovered_amount",
-        "claim_status", "appeal_flag",
+        "claim_status", "appeal_flag", "aging_days",
     ]
     with open(output_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
