@@ -76,3 +76,19 @@ JOIN providers pr ON c.provider_id = pr.provider_id
 WHERE c.claim_status != 'Paid'
 GROUP BY pr.department
 ORDER BY avg_aging_days DESC;
+
+-- -----------------------------------------------------------
+-- 6.5 Monthly Aging Trends
+-- -----------------------------------------------------------
+-- How does the average aging change month-over-month?
+SELECT
+    strftime('%Y-%m', service_date) AS year_month,
+    COUNT(*)                         AS denied_claims,
+    ROUND(AVG(aging_days), 1)        AS avg_aging_days,
+    ROUND(SUM(denied_amount), 2)     AS total_denied,
+    SUM(CASE WHEN aging_days > 90 THEN 1 ELSE 0 END) AS claims_over_90_days,
+    ROUND(100.0 * SUM(CASE WHEN aging_days > 90 THEN 1 ELSE 0 END) / COUNT(*), 2) AS pct_over_90
+FROM claims
+WHERE claim_status != 'Paid'
+GROUP BY year_month
+ORDER BY year_month;
