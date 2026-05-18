@@ -78,3 +78,40 @@ with col_b:
     ))
     fig2.update_layout(title="Revenue Flow Waterfall", height=400)
     st.plotly_chart(fig2, use_container_width=True)
+
+st.markdown("---")
+st.subheader("Recovery Timeline")
+
+recovered = df[df["claim_status"] == "Recovered"].copy()
+recovered["recovery_days"] = (
+    recovered["recovery_date"] - recovered["denial_date"]
+).dt.days
+
+fig3 = px.histogram(
+    recovered, x="recovery_days", nbins=30,
+    title="Distribution of Recovery Time (Days from Denial)",
+    labels={"recovery_days": "Days to Recover", "count": "Claims"},
+    color_discrete_sequence=["#2E75B6"],
+)
+fig3.update_layout(height=350)
+st.plotly_chart(fig3, use_container_width=True)
+
+monthly_recovery = df[df["claim_status"] != "Paid"].groupby(
+    df["service_date"].dt.to_period("M")
+).agg(
+    denied_amt=("denied_amount", "sum"),
+    recovered_amt=("recovered_amount", "sum"),
+).reset_index()
+monthly_recovery["service_date"] = monthly_recovery["service_date"].astype(str)
+monthly_recovery["recovery_rate"] = (
+    monthly_recovery["recovered_amt"] / monthly_recovery["denied_amt"].replace(0, None) * 100
+)
+
+fig4 = px.line(
+    monthly_recovery, x="service_date", y="recovery_rate",
+    title="Monthly Recovery Rate Trend",
+    labels={"service_date": "Month", "recovery_rate": "Recovery Rate %"},
+)
+fig4.update_traces(line=dict(color="#006100", width=3))
+fig4.update_layout(height=350)
+st.plotly_chart(fig4, use_container_width=True)
