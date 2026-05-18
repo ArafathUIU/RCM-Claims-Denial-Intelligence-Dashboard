@@ -52,3 +52,19 @@ FROM claims c
 JOIN payers p ON c.payer_id = p.payer_id
 GROUP BY p.payer_name
 ORDER BY recovery_rate_pct DESC;
+
+-- -----------------------------------------------------------
+-- 2.4 Appeal Rate by Payer
+-- -----------------------------------------------------------
+-- What % of denied claims get appealed, and appeal success rate.
+SELECT
+    p.payer_name,
+    SUM(CASE WHEN c.claim_status != 'Paid' THEN 1 ELSE 0 END)                   AS total_denied,
+    SUM(c.appeal_flag)                                                           AS appeals_filed,
+    ROUND(100.0 * SUM(c.appeal_flag) / NULLIF(SUM(CASE WHEN c.claim_status != 'Paid' THEN 1 ELSE 0 END), 0), 2) AS appeal_rate_pct,
+    SUM(CASE WHEN c.claim_status = 'Recovered' THEN 1 ELSE 0 END)                AS appeals_won,
+    ROUND(100.0 * SUM(CASE WHEN c.claim_status = 'Recovered' THEN 1 ELSE 0 END) / NULLIF(SUM(c.appeal_flag), 0), 2) AS appeal_success_pct
+FROM claims c
+JOIN payers p ON c.payer_id = p.payer_id
+GROUP BY p.payer_name
+ORDER BY appeal_rate_pct DESC;
