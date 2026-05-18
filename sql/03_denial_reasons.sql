@@ -18,24 +18,26 @@ JOIN denial_reasons dr ON c.reason_code = dr.reason_code
 WHERE c.claim_status != 'Paid'
   AND c.reason_code != ''
 GROUP BY c.reason_code
-ORDER BY total_denied DESC;
+ORDER BY denial_count DESC;
 
 -- -----------------------------------------------------------
--- 3.4 Denial Reason Category Summary
+-- 3.2 Denial Reason Financial Impact
 -- -----------------------------------------------------------
--- Aggregated by category (Coding, Authorization, Medical Necessity, etc.).
+-- Frequency + total denied $, avg $ per denial, and recovery $ by reason.
 SELECT
+    c.reason_code,
+    dr.reason_description,
     dr.category,
     COUNT(*)                      AS denial_count,
     ROUND(SUM(c.denied_amount), 2) AS total_denied,
     ROUND(AVG(c.denied_amount), 2) AS avg_denied_per_claim,
-    ROUND(100.0 * SUM(c.recovered_amount) / NULLIF(SUM(c.denied_amount), 0), 2) AS recovery_rate_pct,
-    ROUND(AVG(c.aging_days), 1)   AS avg_aging_days
+    ROUND(SUM(c.recovered_amount), 2) AS total_recovered,
+    ROUND(100.0 * SUM(c.recovered_amount) / NULLIF(SUM(c.denied_amount), 0), 2) AS recovery_rate_pct
 FROM claims c
 JOIN denial_reasons dr ON c.reason_code = dr.reason_code
 WHERE c.claim_status != 'Paid'
   AND c.reason_code != ''
-GROUP BY dr.category
+GROUP BY c.reason_code
 ORDER BY total_denied DESC;
 
 -- -----------------------------------------------------------
@@ -57,3 +59,38 @@ WHERE c.claim_status != 'Paid'
   AND c.reason_code != ''
 GROUP BY c.reason_code
 ORDER BY total_denied DESC;
+
+-- -----------------------------------------------------------
+-- 3.4 Denial Reason Category Summary
+-- -----------------------------------------------------------
+-- Aggregated by category (Coding, Authorization, Medical Necessity, etc.).
+SELECT
+    dr.category,
+    COUNT(*)                      AS denial_count,
+    ROUND(SUM(c.denied_amount), 2) AS total_denied,
+    ROUND(AVG(c.denied_amount), 2) AS avg_denied_per_claim,
+    ROUND(100.0 * SUM(c.recovered_amount) / NULLIF(SUM(c.denied_amount), 0), 2) AS recovery_rate_pct,
+    ROUND(AVG(c.aging_days), 1)   AS avg_aging_days
+FROM claims c
+JOIN denial_reasons dr ON c.reason_code = dr.reason_code
+WHERE c.claim_status != 'Paid'
+  AND c.reason_code != ''
+GROUP BY dr.category
+ORDER BY total_denied DESC;
+
+-- -----------------------------------------------------------
+-- 3.5 Top Denial Reasons by Payer
+-- -----------------------------------------------------------
+-- For each payer, which denial reasons cause the most denials?
+SELECT
+    p.payer_name,
+    dr.reason_description,
+    COUNT(*)                      AS denial_count,
+    ROUND(SUM(c.denied_amount), 2) AS total_denied
+FROM claims c
+JOIN payers p ON c.payer_id = p.payer_id
+JOIN denial_reasons dr ON c.reason_code = dr.reason_code
+WHERE c.claim_status != 'Paid'
+  AND c.reason_code != ''
+GROUP BY p.payer_name, dr.reason_description
+ORDER BY p.payer_name, denial_count DESC;
