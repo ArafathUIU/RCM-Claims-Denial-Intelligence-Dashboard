@@ -60,3 +60,19 @@ JOIN payers p ON c.payer_id = p.payer_id
 WHERE c.claim_status != 'Paid'
 GROUP BY p.payer_name
 ORDER BY avg_aging_days DESC;
+
+-- -----------------------------------------------------------
+-- 6.4 Average Aging Days by Department
+-- -----------------------------------------------------------
+-- Which clinical departments have the most aged denied claims?
+SELECT
+    pr.department,
+    COUNT(*)                                    AS denied_claims,
+    ROUND(AVG(c.aging_days), 1)                 AS avg_aging_days,
+    ROUND(SUM(c.denied_amount), 2)              AS total_denied,
+    ROUND(SUM(c.denied_amount) - SUM(c.recovered_amount), 2) AS outstanding_ar
+FROM claims c
+JOIN providers pr ON c.provider_id = pr.provider_id
+WHERE c.claim_status != 'Paid'
+GROUP BY pr.department
+ORDER BY avg_aging_days DESC;
