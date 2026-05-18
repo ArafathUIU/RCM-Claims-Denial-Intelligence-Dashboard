@@ -43,3 +43,20 @@ FROM claims
 WHERE claim_status != 'Paid'
 GROUP BY aging_bucket
 ORDER BY MIN(aging_days);
+
+-- -----------------------------------------------------------
+-- 6.3 Average Aging Days by Payer
+-- -----------------------------------------------------------
+-- Which payers take the longest to resolve denials?
+SELECT
+    p.payer_name,
+    p.payer_type,
+    COUNT(*)                                    AS denied_claims,
+    ROUND(AVG(c.aging_days), 1)                 AS avg_aging_days,
+    ROUND(SUM(c.denied_amount), 2)              AS total_denied,
+    ROUND(SUM(c.denied_amount) - SUM(c.recovered_amount), 2) AS outstanding_ar
+FROM claims c
+JOIN payers p ON c.payer_id = p.payer_id
+WHERE c.claim_status != 'Paid'
+GROUP BY p.payer_name
+ORDER BY avg_aging_days DESC;
