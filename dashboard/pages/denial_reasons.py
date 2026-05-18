@@ -62,3 +62,27 @@ fig3.update_layout(
     height=450,
 )
 st.plotly_chart(fig3, use_container_width=True)
+
+st.markdown("---")
+st.subheader("Denial Reasons by Payer")
+
+selected_payer = st.selectbox(
+    "Select Payer", options=sorted(df["payer_name"].unique()), index=0
+)
+
+payer_reasons = denied[denied["payer_name"] == selected_payer].groupby(
+    "reason_code"
+).agg(
+    count=("claim_id", "count"),
+    denied_amt=("denied_amount", "sum"),
+).reset_index()
+payer_reasons = payer_reasons.sort_values("denied_amt", ascending=False)
+
+fig4 = px.bar(
+    payer_reasons.head(10), x="reason_code", y="denied_amt",
+    title=f"Top Denial Reasons — {selected_payer}",
+    labels={"reason_code": "", "denied_amt": "Denied Amount ($)"},
+    color="denied_amt", color_continuous_scale="Oranges",
+)
+fig4.update_layout(height=400)
+st.plotly_chart(fig4, use_container_width=True)
