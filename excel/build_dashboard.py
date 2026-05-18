@@ -245,6 +245,66 @@ def build_payer_sheet(wb, df):
 
     ws.add_chart(chart2, "I20")
 
+
+def build_denial_reasons_sheet(wb, df):
+    """Sheet 3: Denial Reasons with Pareto chart."""
+    ws = wb.create_sheet("Denial Reasons")
+    add_title(ws, "Denial Reason Analysis", row=1, col=1)
+    add_subtitle(ws, "Top denial codes by frequency and financial impact (Pareto)", row=2, col=1)
+
+    denied = df[df["claim_status"] != "Paid"]
+    reasons = denied.groupby("reason_code").agg(
+        count=("claim_id", "count"),
+        total_denied=("denied_amount", "sum"),
+    ).reset_index()
+    reasons = reasons.sort_values("total_denied", ascending=False)
+    total_amt = reasons["total_denied"].sum()
+    reasons["cumulative"] = reasons["total_denied"].cumsum()
+    reasons["cum_pct"] = reasons["cumulative"] / total_amt * 100
+    reasons["pct"] = reasons["total_denied"] / total_amt * 100
+
+    headers = ["Reason Code", "Count", "Denied Amount", "% of Total", "Cumulative %"]
+    for ci, h in enumerate(headers, 1):
+        ws.cell(row=4, column=ci, value=h)
+    apply_header_style(ws, 4, len(headers))
+
+    for ri, (_, row_data) in enumerate(reasons.iterrows()):
+        ws.cell(row=5 + ri, column=1, value=row_data["reason_code"])
+        ws.cell(row=5 + ri, column=2, value=row_data["count"])
+        ws.cell(row=5 + ri, column=3, value=row_data["total_denied"])
+        ws.cell(row=5 + ri, column=4, value=row_data["pct"])
+        ws.cell(row=5 + ri, column=5, value=row_data["cum_pct"])
+    apply_body_style(ws, 5, 4 + len(reasons), len(headers))
+    auto_width(ws)
+
+    chart = BarChart()
+    chart.type = "col"
+    chart.title = "Denial Reasons Pareto Chart"
+    chart.y_axis.title = "Denied Amount ($)"
+    chart.style = 10
+    chart.height = 14
+    chart.width = 24
+
+    data_ref = Reference(ws, min_col=3, min_row=4, max_row=4 + len(reasons))
+    cats_ref = Reference(ws, min_col=1, min_row=5, max_row=4 + len(reasons))
+    chart.add_data(data_ref, titles_from_data=True)
+    chart.set_categories(cats_ref)
+    chart.series[0].graphicalProperties.solidFill = MED_BLUE
+
+    line = LineChart()
+    line_data = Reference(ws, min_col=5, min_row=4, max_row=4 + len(reasons))
+    line.add_data(line_data, titles_from_data=True)
+    line.y_axis.axId = 200
+    line.series[0].graphicalProperties.line.solidFill = RED_ACCENT
+    line.series[0].graphicalProperties.line.width = 25000
+    line.series[0].marker.symbol = "circle"
+    line.series[0].marker.size = 6
+
+    chart.y_axis.crosses = "min"
+    chart += line
+
+    ws.add_chart(chart, "G4")
+
     # Remove .gitkeep
     gk = os.path.join(os.path.dirname(__file__), ".gitkeep")
     if os.path.exists(gk):
