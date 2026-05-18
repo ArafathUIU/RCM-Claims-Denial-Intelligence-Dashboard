@@ -180,6 +180,71 @@ def build_summary_sheet(wb, df):
     ws.add_chart(chart, f"A{table_start + len(monthly) + 3}")
     auto_width(ws)
 
+
+def build_payer_sheet(wb, df):
+    """Sheet 2: Payer Performance with bar chart."""
+    ws = wb.create_sheet("Payer Performance")
+    add_title(ws, "Payer Denial Performance", row=1, col=1)
+    add_subtitle(ws, "Denial rate and denied amount by insurance payer", row=2, col=1)
+
+    payer_stats = df.groupby("payer_name").agg(
+        total=("claim_id", "count"),
+        denied=("claim_status", lambda x: (x != "Paid").sum()),
+        denied_amt=("denied_amount", "sum"),
+        recovered_amt=("recovered_amount", "sum"),
+    ).reset_index()
+    payer_stats["denial_rate"] = payer_stats["denied"] / payer_stats["total"] * 100
+    payer_stats["recovery_rate"] = (
+        payer_stats["recovered_amt"] / payer_stats["denied_amt"].replace(0, None) * 100
+    ).fillna(0)
+    payer_stats = payer_stats.sort_values("denial_rate", ascending=False)
+    payer_stats.columns = [
+        "Payer", "Total Claims", "Denied Claims", "Denied Amount",
+        "Recovered Amount", "Denial Rate %", "Recovery Rate %"
+    ]
+
+    headers = list(payer_stats.columns)
+    for ci, h in enumerate(headers, 1):
+        ws.cell(row=4, column=ci, value=h)
+    apply_header_style(ws, 4, len(headers))
+
+    for ri, (_, row_data) in enumerate(payer_stats.iterrows()):
+        for ci, val in enumerate(row_data, 1):
+            ws.cell(row=5 + ri, column=ci, value=val)
+    apply_body_style(ws, 5, 4 + len(payer_stats), len(headers))
+    auto_width(ws, min_width=14)
+
+    chart = BarChart()
+    chart.type = "col"
+    chart.title = "Denial Rate % by Payer"
+    chart.y_axis.title = "Denial Rate %"
+    chart.style = 10
+    chart.height = 14
+    chart.width = 22
+
+    data_ref = Reference(ws, min_col=6, min_row=4, max_row=4 + len(payer_stats))
+    cats_ref = Reference(ws, min_col=1, min_row=5, max_row=4 + len(payer_stats))
+    chart.add_data(data_ref, titles_from_data=True)
+    chart.set_categories(cats_ref)
+    chart.series[0].graphicalProperties.solidFill = MED_BLUE
+
+    ws.add_chart(chart, "I4")
+
+    chart2 = BarChart()
+    chart2.type = "col"
+    chart2.title = "Total Denied Amount by Payer"
+    chart2.y_axis.title = "Denied $"
+    chart2.style = 10
+    chart2.height = 14
+    chart2.width = 22
+
+    data_ref2 = Reference(ws, min_col=4, min_row=4, max_row=4 + len(payer_stats))
+    chart2.add_data(data_ref2, titles_from_data=True)
+    chart2.set_categories(cats_ref)
+    chart2.series[0].graphicalProperties.solidFill = ORANGE
+
+    ws.add_chart(chart2, "I20")
+
     # Remove .gitkeep
     gk = os.path.join(os.path.dirname(__file__), ".gitkeep")
     if os.path.exists(gk):
