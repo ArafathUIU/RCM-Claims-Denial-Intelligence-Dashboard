@@ -83,3 +83,19 @@ WHERE c.claim_status != 'Paid'
   AND c.reason_code != ''
 GROUP BY dr.reason_description
 ORDER BY recovery_rate_pct DESC;
+
+-- -----------------------------------------------------------
+-- 4.6 Monthly Recovery Trends
+-- -----------------------------------------------------------
+-- How much is recovered each month vs how much was denied?
+SELECT
+    strftime('%Y-%m', COALESCE(c.recovery_date, c.denial_date)) AS year_month,
+    COUNT(*)                                                     AS denied_claims,
+    SUM(CASE WHEN c.claim_status = 'Recovered' THEN 1 ELSE 0 END) AS recovered_claims,
+    ROUND(SUM(c.denied_amount), 2)                               AS total_denied,
+    ROUND(SUM(c.recovered_amount), 2)                            AS total_recovered,
+    ROUND(100.0 * SUM(c.recovered_amount) / NULLIF(SUM(c.denied_amount), 0), 2) AS recovery_rate_pct
+FROM claims c
+WHERE c.claim_status != 'Paid'
+GROUP BY year_month
+ORDER BY year_month;
