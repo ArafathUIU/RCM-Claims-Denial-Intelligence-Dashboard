@@ -65,3 +65,21 @@ WHERE claim_status = 'Recovered'
   AND denial_date != ''
 GROUP BY amount_bucket
 ORDER BY avg_recovery_days;
+
+-- -----------------------------------------------------------
+-- 4.5 Recovery Rate by Denial Reason
+-- -----------------------------------------------------------
+-- Which denial reasons have the best/worst recovery rates?
+SELECT
+    dr.reason_description,
+    COUNT(*)                                                            AS denied_count,
+    SUM(CASE WHEN c.claim_status = 'Recovered' THEN 1 ELSE 0 END)       AS recovered_count,
+    ROUND(SUM(c.denied_amount), 2)                                      AS total_denied,
+    ROUND(SUM(c.recovered_amount), 2)                                   AS total_recovered,
+    ROUND(100.0 * SUM(c.recovered_amount) / NULLIF(SUM(c.denied_amount), 0), 2) AS recovery_rate_pct
+FROM claims c
+JOIN denial_reasons dr ON c.reason_code = dr.reason_code
+WHERE c.claim_status != 'Paid'
+  AND c.reason_code != ''
+GROUP BY dr.reason_description
+ORDER BY recovery_rate_pct DESC;
