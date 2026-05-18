@@ -1,17 +1,16 @@
 # RCM Claims Denial Intelligence Dashboard
 
-A healthcare revenue cycle analytics portfolio project built with **Python, SQL, and Excel** that generates synthetic claims data, runs analytical queries, and visualizes denial trends in both a formatted Excel workbook and an interactive Streamlit dashboard.
+A healthcare revenue cycle analytics portfolio project built with **Python, SQL, and Excel** — synthetic claims generation, SQL analysis, formatted Excel workbook, and interactive Streamlit dashboard.
 
 ---
 
 ## Quickstart
 
 ```bash
-uv venv
-uv pip install -r requirements.txt
-python data/generate_data.py          # Generate 20,000 synthetic claims
-python excel/build_dashboard.py       # Build formatted Excel workbook
-streamlit run dashboard/app.py        # Launch interactive web dashboard
+uv venv && uv pip install -r requirements.txt
+python data/generate_data.py          # 20,000 synthetic claims
+python excel/build_dashboard.py       # Formatted Excel workbook
+streamlit run dashboard/app.py        # Interactive web dashboard
 ```
 
 ---
@@ -19,29 +18,88 @@ streamlit run dashboard/app.py        # Launch interactive web dashboard
 ## Architecture
 
 ```
-synthetic data ──► CSV ──► pandas ──► Excel workbook (6 sheets, charts)
+synthetic data ──► CSV ──► pandas ──► Excel workbook (6 sheets)
  (Faker)           │         │
-                   │         └───────► Streamlit app (5 pages, interactive)
+                   │         └───────► Streamlit app (5 pages)
                    │
-                   └──────────► SQL queries (6 .sql files for SQLite)
+                   └──────────► SQL analysis (6 files)
 ```
 
-**Output files (git-ignored):**
-| File | Content |
-|------|---------|
-| `data/claims_data.csv` | 20,000 claims, 17 columns, ~7 MB |
-| `excel/RCM_Denial_Dashboard.xlsx` | 6-sheet workbook with charts, ~30 KB |
+---
+
+## Streamlit Dashboard
+
+### 1. Overview
+KPI cards (total claims, denial rate, denied $, recovery rate), date range & payer type filters, monthly denial rate trend, denied and recovered bar charts.
+
+![Overview](screenshots/01_overview.png)
+
+### 2. Payer Performance
+Per-payer denial rate bars, denied $ bars, recovery rate, appeal rate vs success grouped bars, payer type summary cards, styled comparison table.
+
+![Payer Analysis](screenshots/02_payer_analysis.png)
+
+### 3. Denial Reasons
+Top-10 bar chart, treemap of denied amounts, interactive Pareto (bar + cumulative line), per-payer reason breakdown.
+
+![Denial Reasons](screenshots/03_denial_reasons.png)
+
+### 4. Revenue Recovery
+Appeal funnel (denied → recovered → written off), revenue waterfall, recovery rate by reason, recovery timeline histogram, monthly recovery trend.
+
+![Revenue Recovery](screenshots/04_revenue_recovery.png)
+
+### 5. Provider & Aging
+Department filter, provider denial rate bars (top 15), department horizontal chart, provider-payer heatmap. AR aging tab: bucket bars, pie distribution, aging by payer & department.
+
+![Provider & Aging](screenshots/05_provider_aging.png)
+
+---
+
+## Excel Dashboard
+
+Generated entirely with **OpenPyXL** — no Excel required to produce.
+
+| Sheet | Content |
+|-------|---------|
+| **Summary** | 8 KPI cards (total claims, denial rate, denied $, recovery rate, appeal win rate, avg aging), monthly trend table, denial rate line chart |
+| **Payer Performance** | Denial rate % and denied $ bar charts by payer, styled with conditional formatting |
+| **Denial Reasons** | Bar + cumulative line Pareto chart, 14 denial codes ranked by $ impact |
+| **Revenue Recovery** | Revenue flow bar chart (billed → allowed → denied → recovered → written off), appeal metrics table |
+| **Provider Drill-down** | Provider table with red/green conditional formatting (high/low denial), department horizontal bar chart |
+| **Aging & AR** | Aging bucket distribution charts, outstanding AR by bucket, payer aging summary table |
+
+---
+
+## SQL Analysis Queries
+
+6 files covering all RCM denial dimensions (SQLite-compatible):
+
+| File | Queries | Dimensions |
+|------|---------|------------|
+| `01_denial_trends.sql` | 5 queries | Monthly counts, denial rate %, denied $, quarterly rollup, YoY comparison |
+| `02_payer_performance.sql` | 5 queries | Payer denial rates, avg $ denied, recovery rate, appeal rate, payer type summary |
+| `03_denial_reasons.sql` | 5 queries | Reason frequency, financial impact, Pareto cumulative %, category grouping, top reasons per payer |
+| `04_revenue_recovery.sql` | 6 queries | Appeal funnel, $ recovered vs written off, recovery days by amount bucket, recovery by reason, monthly trends |
+| `05_provider_drilldown.sql` | 5 queries | Provider denials, department rollup, top 10 worst, provider-payer matrix |
+| `06_aging_ar.sql` | 5 queries | Aging buckets with $ amounts, aging by payer, aging by department, monthly aging trends with 90+ day analysis |
 
 ---
 
 ## Data Model
 
-### `claims` (fact table)
-20,000 records spanning Jan 2024 – Dec 2025 with realistic distributions:
-- 12 insurance payers (UnitedHealth, Aetna, BCBS, Cigna, Humana, Medicare, Medicaid, Tricare, Kaiser, Centene, Molina, Anthem)
-- 50 providers across 12 clinical departments
-- 14 denial reason codes (CO-16, CO-50, CO-97, CO-109, etc.)
-- Realistic denial rates (~13-15%), appeal rates (~35%), and recovery rates (~17-20%)
+### claims (fact table)
+20,000 records (Jan 2024 – Dec 2025) with realistic distributions:
+
+| Attribute | Detail |
+|-----------|--------|
+| Payers | 12 (UnitedHealth, Aetna, BCBS, Cigna, Humana, Medicare, Medicaid, Tricare, Kaiser, Centene, Molina, Anthem) |
+| Providers | 50 across 12 clinical departments |
+| Denial codes | 14 (CO-16, CO-50, CO-97, CO-109, etc.) |
+| Denial rate | ~13–15% |
+| Recovery rate | ~17–20% of denied |
+| Seasonal | Q4 denials 30% higher |
+| Department factors | Emergency Medicine +30%, Laboratory -50% denial propensity |
 
 ### Claim Lifecycle
 ```
@@ -50,13 +108,13 @@ Billed → Allowed → [Paid]
                                            → [Written Off]
 ```
 
-### Key Metrics Tracked
-| Metric | Description |
-|--------|-------------|
+### Key Metrics
+| Metric | Formula |
+|--------|---------|
 | Denial Rate | `denied_claims / total_claims` |
 | Recovery Rate | `recovered_amount / denied_amount` |
 | Appeal Rate | `appealed_claims / denied_claims` |
-| Appeal Success Rate | `recovered_claims / appealed_claims` |
+| Appeal Success | `recovered_claims / appealed_claims` |
 | Aging Days | `days from billing_date to resolution` |
 
 ---
@@ -68,127 +126,63 @@ Billed → Allowed → [Paid]
 │   └── generate_data.py              # Synthetic RCM claims generator
 ├── sql/
 │   ├── schema.sql                    # Tables, indexes, views (SQLite)
-│   ├── 01_denial_trends.sql          # Monthly/quarterly/YoY denial trends
-│   ├── 02_payer_performance.sql      # Payer denial rates, recovery, appeals
-│   ├── 03_denial_reasons.sql         # Reason frequency, Pareto, categories
-│   ├── 04_revenue_recovery.sql       # Appeal funnel, recovery time, monthly trends
-│   ├── 05_provider_drilldown.sql     # Provider/department denials, top 10
-│   └── 06_aging_ar.sql              # Aging buckets, AR by payer & department
+│   ├── 01_denial_trends.sql          # Monthly/quarterly/YoY trends
+│   ├── 02_payer_performance.sql      # Payer comparison
+│   ├── 03_denial_reasons.sql         # Reason frequency + Pareto
+│   ├── 04_revenue_recovery.sql       # Appeals + recovery timeline
+│   ├── 05_provider_drilldown.sql     # Provider/department drill-down
+│   └── 06_aging_ar.sql              # Aging buckets + AR analysis
 ├── excel/
-│   └── build_dashboard.py            # OpenPyXL dashboard generator
+│   └── build_dashboard.py            # OpenPyXL 6-sheet generator
 ├── dashboard/
-│   ├── app.py                        # Streamlit entry point + sidebar
-│   ├── data_loader.py                # Shared cached data loader
+│   ├── app.py                        # Streamlit entry point
+│   ├── data_loader.py                # Shared cached loader
 │   └── pages/
-│       ├── overview.py               # KPI cards, filters, monthly trends
-│       ├── payer_analysis.py          # Payer comparison, appeal metrics
-│       ├── denial_reasons.py          # Treemap, Pareto, per-payer breakdown
-│       ├── revenue_recovery.py        # Funnel, waterfall, recovery timeline
-│       └── provider_aging.py          # Provider rates, aging buckets
+│       ├── overview.py               # KPI cards + trend charts
+│       ├── payer_analysis.py          # Payer comparison
+│       ├── denial_reasons.py          # Treemap + Pareto
+│       ├── revenue_recovery.py        # Funnel + waterfall
+│       └── provider_aging.py          # Provider rates + aging
 ├── .streamlit/
 │   └── config.toml                   # Corporate blue theme
+├── screenshots/                       # Dashboard screenshots
+├── capture_screenshots.py            # Playwright screenshot tool
 ├── requirements.txt
 └── README.md
 ```
 
 ---
 
-## Analysis Dimensions
+## Tech Stack
 
-### 1. Denial Trends Over Time (`01_denial_trends.sql`)
-Monthly denial counts, denial rate percentages, denied/recovered dollar amounts, quarterly rollups, and year-over-year month comparisons.
-
-### 2. Payer Performance (`02_payer_performance.sql`)
-Per-payer denial rates vs dollar amounts, recovery rates, appeal filing and success rates, and payer-type-level aggregation (Commercial/Government/Managed Care).
-
-### 3. Denial Reasons (`03_denial_reasons.sql`)
-Frequency and financial impact of 14 denial codes, Pareto analysis with cumulative percentages, category-level grouping (Coding, Authorization, Medical Necessity), and top denial reasons per payer.
-
-### 4. Revenue Recovery (`04_revenue_recovery.sql`)
-Appeal counts and success rates, recovered vs written-off dollars, average days to recover (by amount bucket), recovery rates by denial reason, and monthly recovery trends.
-
-### 5. Provider Drill-down (`05_provider_drilldown.sql`)
-Denial counts, rates, and dollar amounts by provider and department. Top 10 worst-performing providers and a provider-payer denial rate matrix.
-
-### 6. Aging & AR (`06_aging_ar.sql`)
-Aging bucket distribution (0-30, 31-60, 61-90, 90+ days) with dollar amounts, average aging days by payer and department, and monthly aging trends.
-
----
-
-## Excel Dashboard (6 Sheets)
-
-| Sheet | Content |
-|-------|---------|
-| **Summary** | 8 KPI cards, monthly trend table, denial rate line chart |
-| **Payer Performance** | Denial rate % and denied $ bar charts by payer |
-| **Denial Reasons** | Bar + cumulative line Pareto chart |
-| **Revenue Recovery** | Revenue flow bar chart, appeal metrics table |
-| **Provider Drill-down** | Provider table with conditional formatting (red/green for high/low denial), department bar chart |
-| **Aging & AR** | Bucket distribution charts, outstanding AR, payer aging table |
-
-Built entirely with **OpenPyXL** — no Excel required to generate.
-
----
-
-## Streamlit Dashboard (5 Pages)
-
-| Page | Interactive Features |
-|------|---------------------|
-| **Overview** | 8 KPI metric cards, date range filter, payer type multiselect, denial rate line chart, denied/recovered bar charts |
-| **Payer Analysis** | Payer multiselect, denial rate & amount bars, recovery/appeal grouped bars, payer-type summary cards |
-| **Denial Reasons** | Top-10 bar chart, treemap, Pareto (dual-axis bar+line), per-payer reason breakdown |
-| **Revenue Recovery** | 4 KPI metrics, appeal funnel, revenue waterfall, recovery-by-reason bar, recovery timeline histogram, monthly recovery trend |
-| **Provider & Aging** | Department dropdown filter, provider denial rate bars, department horizontal chart, heatmap. AR aging: bucket bars + pie, aging by payer & department |
-
-All charts built with **Plotly** — hover, zoom, and download enabled.
+| Layer | Tool | Version |
+|-------|------|---------|
+| Data Generation | Python + Faker | >=22.0 |
+| Data Processing | pandas, numpy | >=2.0, >=1.26 |
+| Excel Generation | OpenPyXL | >=3.1 |
+| Web Dashboard | Streamlit + Plotly | >=1.30, >=5.15 |
+| Screenshot Capture | Playwright | >=1.59 |
+| Database (optional) | SQLite | built-in |
 
 ---
 
 ## How to Run
 
-### Prerequisites
-- Python 3.10+
-- `uv` package manager (recommended) or `pip`
-
-### Step-by-step
-
 ```bash
-# 1. Create environment and install dependencies
-uv venv
-uv pip install -r requirements.txt
-
-# 2. Generate synthetic claims data (20,000 records)
-.venv\Scripts\python data\generate_data.py
-
-# 3. Build the Excel dashboard
-.venv\Scripts\python excel\build_dashboard.py
-
-# 4. Launch the Streamlit web dashboard
-.venv\Scripts\streamlit run dashboard\app.py
+uv venv && uv pip install -r requirements.txt
+python data/generate_data.py          # Step 1: Generate claims
+python excel/build_dashboard.py       # Step 2: Build Excel workbook
+streamlit run dashboard/app.py        # Step 3: Launch dashboard
 ```
-
----
-
-## Dependencies
-
-| Package | Version | Purpose |
-|---------|---------|---------|
-| `faker` | >=22.0 | Synthetic data generation |
-| `pandas` | >=2.0 | Data manipulation & analysis |
-| `numpy` | >=1.26 | Numerical operations |
-| `openpyxl` | >=3.1 | Excel workbook generation |
-| `streamlit` | >=1.30 | Web dashboard framework |
-| `plotly` | >=5.15 | Interactive charting |
 
 ---
 
 ## Phase Status
 
-| Phase | Description | Status |
-|-------|-------------|--------|
+| # | Phase | Status |
+|---|-------|--------|
 | 1 | Data Generation & Database Setup | Complete |
-| 2 | SQL Analysis Queries (6 dimensions) | Complete |
-| 3 | Excel Dashboard (6 sheets) | Complete |
-| 4 | Streamlit Web Dashboard (5 pages) | Complete |
+| 2 | SQL Analysis Queries | Complete |
+| 3 | Excel Dashboard | Complete |
+| 4 | Streamlit Web Dashboard | Complete |
 | 5 | Documentation & Polish | Complete |
-| 6 (bonus) | Streamlit Theme & Config | Complete |
